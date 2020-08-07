@@ -182,6 +182,7 @@ typedef struct setpoint_s {
   velocity_t velocity;      // m/s
   acc_t acceleration;       // m/s^2
   bool velocity_body;       // true if velocity is given in body frame; false if velocity is given in world frame
+  uint16_t flymode;
 
   struct {
     stab_mode_t x;

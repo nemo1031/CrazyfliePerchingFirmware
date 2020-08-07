@@ -128,6 +128,68 @@ static uint16_t motorTestCount = 0;
 
 STATIC_MEM_TASK_ALLOC(stabilizerTask, STABILIZER_TASK_STACKSIZE);
 
+
+
+
+
+
+
+// ======================================================================================
+// ======================================================================================
+// ====== Modification starts from here =================================================
+// ======================================================================================
+// ======================================================================================
+#include "num.h"
+#define PI 3.14159265f
+#define limitThrust(VAL) limitUint16(VAL)
+
+
+static struct {
+  int16_t p;
+  int16_t d;
+  int16_t i;
+  uint32_t fw;
+  uint32_t si;
+} rollGain;
+
+/*static double_t VtcPrchK[3][6] = {
+    {0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0},
+};*/
+
+static uint16_t controlRoll;
+static uint16_t controlPitch;
+static uint16_t controlYaw;
+static uint16_t controlThrust;
+static uint16_t controlFlymode;
+
+int32_t rollTemp;
+int32_t iError;
+// float rollratecommand = 0;
+/*static int16_t current_error_z_dot     = 0;
+static int16_t current_error_roll      = 0;
+static int16_t current_error_rollrate  = 0;control
+static int16_t current_error_yaw       = 0;
+static int16_t current_error_yawrate   = 0;*/
+
+static int modeSwitch = 100;
+
+int16_t angleState [6] = {0,0,0,0,0,0};
+int16_t oldState = 0;
+
+// ======================================================================================
+// ======================================================================================
+// ====== Modification ends here ========================================================
+// ======================================================================================
+// ======================================================================================
+
+
+
+
+
+
+
 static void stabilizerTask(void* param);
 static void testProps(sensorData_t *sensors);
 
@@ -279,7 +341,166 @@ static void stabilizerTask(void* param)
 
       sitAwUpdateSetpoint(&setpoint, &sensorData, &state);
 
-      controller(&control, &setpoint, &sensorData, &state, tick);
+
+
+
+
+
+      // =============================================================================================================
+      // =============================================================================================================
+      // ====== Modification starts from here ========================================================================
+      // =============================================================================================================
+      // =============================================================================================================
+
+
+      // rollratecommand
+      //controller(&control, &setpoint, &sensorData, &state, tick);
+
+      modeSwitch = setpoint.flymode;
+
+      switch (modeSwitch){
+
+        case 100:
+          controller(&control, &setpoint, &sensorData, &state, tick);
+          control.roll   = control.roll / 2.0f;
+          break;
+
+        case 200:
+          control.thrust = setpoint.thrust;
+          control.roll   = 0;
+          control.pitch  = 0;
+          control.yaw    = 0;
+          break;
+
+
+        case 300:
+
+                  
+          
+          angleState[0]   = setpoint.attitude.roll   - state.attitude.roll;
+          angleState[1]   = setpoint.attitude.pitch  - sensorData.gyro.x;
+          // angleState[2] = setpoint.attitude.pitch     - state.attitude.pitch;
+          // angleState[3] = setpoint.attitudeRate.pitch - sensorData.gyro.y;
+          // angleState[4] = setpoint.attitude.yaw       - state.attitude.yaw;
+          // angleState[5] = setpoint.attitudeRate.pitch - sensorData.gyro.z;
+
+          /* ==== Note ====
+          setpoint.attitude.AAA     -> from py
+          setpoint.attitudeRate.AAA -> from py
+          state.attitude.AAA        -> from onboard
+          sensorData.gyro.AAA       -> from onboard
+          */
+
+          iError = iError + rollGain.i*angleState[0]*0.001;
+          if (oldState < 0 && angleState[0] > 0){
+            iError = 0;
+          }
+          else if (oldState > 0 && angleState[0] < 0){
+            iError = 0;
+          }
+          if (iError>rollGain.si){
+            iError = rollGain.si;
+          }
+          else if (iError<-rollGain.si){
+            iError = -rollGain.si;
+          }
+          oldState = angleState[0];
+          if (angleState[0]<3 && angleState[0]>-3){
+            iError = 0;
+          }
+
+
+          rollTemp =  rollGain.p * angleState[0] + // VtcPrchK[0][0] * angleState[0] +////VtcPrchK[0][0] * angleState[0] +
+                      rollGain.d * angleState[1] + //VtcPrchK[0][1] * angleState[1] +//rollGain.d * angleState[1] + //VtcPrchK[0][1] * angleState[1] +
+                      iError +
+                      0.29*(cos(state.attitude.roll*PI/180)*0.66+sin(state.attitude.roll*PI/180)*0.16)*rollGain.fw; //   )  *  160.5217;*/
+
+          if(rollTemp > 65535){
+            rollTemp = 65535;
+            }
+          else if(rollTemp < 0){
+            rollTemp = 0;
+            }
+
+          control.thrust = rollTemp/2.0f;
+          control.roll   = rollTemp/2.0f-2;
+          control.pitch  = 0;
+          control.yaw    = 0;
+
+          controlRoll   = control.roll;
+          controlPitch  = control.pitch;
+          controlYaw    = control.yaw;
+          controlThrust = control.thrust;
+
+          break;
+
+
+        case 400:
+          
+          angleState[0]  = setpoint.attitude.roll  - state.attitude.roll;
+          angleState[1]  = setpoint.attitude.pitch - sensorData.gyro.x;
+
+          // I gain for rolling
+          iError = iError + rollGain.i*angleState[0]*0.001;
+
+          if (oldState < 0 && angleState[0] > 0){
+            iError = 0;
+          }
+          else if (oldState > 0 && angleState[0] < 0){
+            iError = 0;
+          }
+          if (iError>rollGain.si){
+            iError = rollGain.si;
+          }
+          else if (iError<-rollGain.si){
+            iError = -rollGain.si;
+          }
+          oldState = angleState[0];
+          if (angleState[0]<3 && angleState[0]>-3){
+            iError = 0;
+          }
+
+
+          // roll command 
+
+          rollTemp =  rollGain.p * angleState[0] + // VtcPrchK[0][0] * angleState[0] +////VtcPrchK[0][0] * angleState[0] +
+                      rollGain.d * angleState[1] + //VtcPrchK[0][1] * angleState[1] +//rollGain.d * angleState[1] + //VtcPrchK[0][1] * angleState[1] +
+                      iError +
+                      0.2*(cos(state.attitude.roll*PI/180)*0.66+sin(state.attitude.roll*PI/180)*0.16)*rollGain.fw; //   )  *  160.5217;*/
+          if(rollTemp > 65535)
+            {
+            rollTemp = 65535;
+            }
+          else if(rollTemp < 0)
+            {
+              rollTemp = 0;
+            }
+          control.thrust = rollTemp;
+          control.roll   = 0;
+          control.pitch  = 0;
+          control.yaw    = 0;
+
+
+      }
+
+      controlFlymode = modeSwitch;
+      controlRoll    = control.roll;
+      controlPitch   = control.pitch;
+      controlYaw     = control.yaw;
+      controlThrust  = control.thrust;
+
+
+
+      // =============================================================================================================
+      // =============================================================================================================
+      // ====== Modification ends here ===============================================================================
+      // =============================================================================================================
+      // =============================================================================================================
+
+
+
+      stabilizerResetEmergencyStop();
+
 
       checkEmergencyStopTimeout();
 
@@ -676,3 +897,35 @@ LOG_ADD(LOG_INT16, rateRoll, &stateCompressed.rateRoll)   // angular velocity - 
 LOG_ADD(LOG_INT16, ratePitch, &stateCompressed.ratePitch)
 LOG_ADD(LOG_INT16, rateYaw, &stateCompressed.rateYaw)
 LOG_GROUP_STOP(stateEstimateZ)
+
+
+
+
+// ==================================================================
+// ==================================================================
+// ====== Modification starts here ==================================
+// ==================================================================
+// ==================================================================
+
+
+LOG_GROUP_START(nemoStab)
+LOG_ADD(LOG_UINT16, cRoll,   &controlRoll)
+LOG_ADD(LOG_UINT16, cThrust, &controlThrust)
+LOG_ADD(LOG_UINT16, cPitch,  &controlPitch)
+LOG_ADD(LOG_UINT16, cYaw,    &controlYaw)
+LOG_ADD(LOG_UINT16, onFM,    &controlFlymode)
+LOG_GROUP_STOP(nemoStab)
+
+PARAM_GROUP_START(nemo)
+PARAM_ADD(PARAM_INT16,  rollGainP, &rollGain.p)
+PARAM_ADD(PARAM_INT16,  rollGainD, &rollGain.d)
+PARAM_ADD(PARAM_INT16,  rollGainI, &rollGain.i)
+PARAM_ADD(PARAM_UINT32, rollFW,    &rollGain.fw)
+PARAM_ADD(PARAM_UINT32, rollSatI,  &rollGain.si)
+PARAM_GROUP_STOP(stabilizer)
+// ==================================================================
+// ==================================================================
+// ====== Modification ends here ====================================
+// ==================================================================
+// ==================================================================
+

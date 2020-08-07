@@ -37,6 +37,11 @@
 
 static bool motorSetEnable = false;
 
+static uint16_t controlRoll;
+static uint16_t controlPitch;
+static uint16_t controlYaw;
+static uint16_t controlThrust;
+
 static struct {
   uint32_t m1;
   uint32_t m2;
@@ -78,21 +83,51 @@ void powerStop()
 void powerDistribution(const control_t *control)
 {
   #ifdef QUAD_FORMATION_X
-    int16_t r = control->roll / 2.0f;
+
+  //   uint16_t r = control->roll / 2.0f;
+  //   uint16_t p = control->pitch / 2.0f;
+
+
+  //   motorPower.m1 = limitThrust(control->thrust - r + p + control->yaw);
+  //   motorPower.m2 = limitThrust(control->thrust - r - p - control->yaw);
+  //   motorPower.m3 = limitThrust(control->thrust + r - p + control->yaw);
+  //   motorPower.m4 = limitThrust(control->thrust + r + p - control->yaw);
+
+  //   controlRoll   = control->roll;
+  //   controlPitch  = p;
+  //   controlYaw    = control->yaw;
+  //   controlThrust = control->thrust;
+
+  //   //*/
+
+  // /*
+  //   motorPower.m1 = 0;
+  //   motorPower.m2 = 0;
+  //   motorPower.m3 = limitThrust(150*(control->roll)/0.184);
+  //   motorPower.m4 = limitThrust(150*(control->roll)/0.184);
+  //   */
+    int16_t r = control->roll; // 2.0f;
     int16_t p = control->pitch / 2.0f;
     motorPower.m1 = limitThrust(control->thrust - r + p + control->yaw);
     motorPower.m2 = limitThrust(control->thrust - r - p - control->yaw);
     motorPower.m3 =  limitThrust(control->thrust + r - p + control->yaw);
     motorPower.m4 =  limitThrust(control->thrust + r + p - control->yaw);
+
   #else // QUAD_FORMATION_NORMAL
-    motorPower.m1 = limitThrust(control->thrust + control->pitch +
-                               control->yaw);
-    motorPower.m2 = limitThrust(control->thrust - control->roll -
-                               control->yaw);
-    motorPower.m3 =  limitThrust(control->thrust - control->pitch +
-                               control->yaw);
-    motorPower.m4 =  limitThrust(control->thrust + control->roll -
-                               control->yaw);
+    // motorPower.m1 = limitThrust(control->thrust + control->pitch +
+    //                            control->yaw);
+    // motorPower.m2 = limitThrust(control->thrust - control->roll -
+    //                            control->yaw);
+    // motorPower.m3 =  limitThrust(control->thrust - control->pitch +
+    //                            control->yaw);
+    // motorPower.m4 =  limitThrust(control->thrust + control->roll -
+    //                            control->yaw);
+    int16_t r = control->roll;// 2.0f;
+    int16_t p = control->pitch / 2.0f;
+    motorPower.m1 = limitThrust(control->thrust - r + p + control->yaw);
+    motorPower.m2 = limitThrust(control->thrust - r - p - control->yaw);
+    motorPower.m3 =  limitThrust(control->thrust + r - p + control->yaw);
+    motorPower.m4 =  limitThrust(control->thrust + r + p - control->yaw);
   #endif
 
   if (motorSetEnable)
@@ -125,3 +160,10 @@ LOG_ADD(LOG_UINT32, m2, &motorPower.m2)
 LOG_ADD(LOG_UINT32, m3, &motorPower.m3)
 LOG_ADD(LOG_UINT32, m4, &motorPower.m4)
 LOG_GROUP_STOP(motor)
+
+LOG_GROUP_START(nemoPower)
+LOG_ADD(LOG_UINT16, cRoll,   &controlRoll)
+LOG_ADD(LOG_UINT16, cThrust, &controlThrust)
+LOG_ADD(LOG_UINT16, cPitch,  &controlPitch)
+LOG_ADD(LOG_UINT16, cYaw,    &controlYaw)
+LOG_GROUP_STOP(nemoPower)

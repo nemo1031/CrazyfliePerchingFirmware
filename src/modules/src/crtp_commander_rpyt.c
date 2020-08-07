@@ -46,6 +46,7 @@ struct CommanderCrtpLegacyValues
   float pitch;      // deg
   float yaw;        // deg
   uint16_t thrust;
+  uint16_t flymode;
 } __attribute__((packed));
 
 /**
@@ -129,6 +130,7 @@ void crtpCommanderRpytDecodeSetpoint(setpoint_t *setpoint, CRTPPacket *pk)
 
   // Thrust
   uint16_t rawThrust = values->thrust;
+  
 
   if (thrustLocked || (rawThrust < MIN_THRUST)) {
     setpoint->thrust = 0;
@@ -163,6 +165,9 @@ void crtpCommanderRpytDecodeSetpoint(setpoint_t *setpoint, CRTPPacket *pk)
     setpoint->mode.roll = modeDisable;
     setpoint->mode.pitch = modeDisable;
     setpoint->mode.yaw = modeAbs;
+    //setpoint->flymode = modeAbs;
+
+  
 
     setpoint->position.x = -values->pitch;
     setpoint->position.y = values->roll;
@@ -171,6 +176,7 @@ void crtpCommanderRpytDecodeSetpoint(setpoint_t *setpoint, CRTPPacket *pk)
     setpoint->attitude.roll  = 0;
     setpoint->attitude.pitch = 0;
     setpoint->attitude.yaw = values->yaw;
+    //setpoint->flymode = values->flymode;
     setpoint->thrust = 0;
   } else {
     setpoint->mode.x = modeDisable;
@@ -214,6 +220,7 @@ void crtpCommanderRpytDecodeSetpoint(setpoint_t *setpoint, CRTPPacket *pk)
       setpoint->attitude.yaw = values->yaw;
     }
   }
+  setpoint->flymode = values->flymode;
 }
 
 // Params for flight modes

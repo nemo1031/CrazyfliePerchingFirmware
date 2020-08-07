@@ -174,6 +174,7 @@ struct cppmEmuPacket_s {
   uint16_t channelPitch;
   uint16_t channelYaw;
   uint16_t channelThrust;
+  uint16_t channelFlymode;
   uint16_t channelAux[MAX_AUX_RC_CHANNELS];
 } __attribute__((packed));
 
@@ -224,6 +225,7 @@ static void cppmEmuDecoder(setpoint_t *setpoint, uint8_t type, const void *data,
 
   setpoint->attitudeRate.yaw = -1 * getChannelUnitMultiplier(values->channelYaw, 1500, 500) * s_CppmEmuYawMaxRateDps; // yaw inverted
   setpoint->thrust = getChannelUnitMultiplier(values->channelThrust, 1000, 1000) * (float)UINT16_MAX; // Thrust is positive only - uses the full 1000-2000 range
+  setpoint->flymode = getChannelUnitMultiplier(values->channelFlymode, 1000, 1000) * (float)UINT16_MAX; 
 
   // Make sure thrust isn't negative
   if(setpoint->thrust < 0)
@@ -365,6 +367,12 @@ static void positionDecoder(setpoint_t *setpoint, uint8_t type, const void *data
   setpoint->mode.yaw = modeAbs;
 
   setpoint->attitude.yaw = values->yaw;
+
+  // setpoint->flymode = modeAbs;
+
+  // setpoint->flymode = values->flymode;
+
+
 }
 
  /* ---===== 3 - packetDecoders array =====--- */
